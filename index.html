@@ -1,11 +1,236 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Checklist Casamento</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Checklist do Casamento</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    min-height:100vh;
+    background:linear-gradient(135deg,#1a0a0f 0%,#2d1520 40%,#1a0d1a 100%);
+    font-family:Georgia,'Times New Roman',serif;
+    color:#f0e6d3;
+    padding-bottom:60px;
+  }
+  .header{text-align:center;padding:48px 20px 18px;position:relative;overflow:hidden}
+  .header::before{
+    content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+    background:radial-gradient(ellipse at 50% 0%,rgba(201,169,110,0.15) 0%,transparent 70%);
+    pointer-events:none;
+  }
+  .subtitle{font-size:12px;letter-spacing:.45em;color:#c9a96e;text-transform:uppercase;margin-bottom:10px}
+  h1{font-size:clamp(1.8rem,6vw,3.2rem);font-weight:400;margin:0 0 6px;color:#f5ead8;font-style:italic;line-height:1.1}
+  .divider{color:#c9a96e;font-size:18px;margin:8px 0 20px;letter-spacing:8px}
+  .progress-wrap{max-width:400px;margin:0 auto 10px}
+  .progress-bar{height:5px;background:rgba(255,255,255,.09);border-radius:3px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#c9a96e,#e8c97a);border-radius:3px;transition:width .4s ease;width:0%}
+  .progress-text{margin-top:7px;font-size:12px;color:#b8a080;letter-spacing:.06em}
+  .filters{display:flex;justify-content:center;gap:8px;padding:0 20px 22px;flex-wrap:wrap}
+  .filter-btn{
+    padding:6px 18px;border-radius:30px;
+    border:1px solid rgba(201,169,110,.22);
+    background:transparent;color:#6a5a40;
+    font-size:12px;cursor:pointer;letter-spacing:.06em;
+    transition:all .2s;font-family:inherit;
+  }
+  .filter-btn.active{
+    border-color:#c9a96e;
+    background:rgba(201,169,110,.13);
+    color:#c9a96e;
+  }
+  .categories{max-width:680px;margin:0 auto;padding:0 16px}
+  .category{
+    margin-bottom:10px;
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:12px;overflow:hidden;
+    transition:all .2s;
+  }
+  .category.open{border-color:var(--cat-color-alpha);background:rgba(255,255,255,.025)}
+  .cat-header{
+    width:100%;display:flex;align-items:center;gap:12px;
+    padding:14px 18px;background:transparent;border:none;
+    cursor:pointer;text-align:left;
+  }
+  .cat-icon{font-size:19px}
+  .cat-title{flex:1;font-size:15px;color:#f0e6d3;letter-spacing:.02em;font-family:inherit}
+  .cat-complete{font-size:10px;color:#7dc97a}
+  .cat-count{font-size:12px;min-width:38px;text-align:right}
+  .cat-arrow{font-size:9px;margin-left:2px;transition:transform .2s;display:inline-block}
+  .category.open .cat-arrow{transform:rotate(180deg)}
+  .cat-progress{height:2px;background:rgba(255,255,255,.04);margin:0 18px}
+  .cat-progress-fill{height:100%;transition:width .35s;width:0%}
+  .cat-items{padding:10px 0 14px;display:none}
+  .category.open .cat-items{display:block}
+  .item{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:8px 18px;cursor:pointer;transition:background .15s;
+  }
+  .item:hover{background:rgba(255,255,255,.04)}
+  .checkbox{
+    width:18px;height:18px;border-radius:4px;flex-shrink:0;margin-top:2px;
+    border:1.5px solid rgba(255,255,255,.17);
+    background:transparent;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .2s;
+  }
+  .checkbox.checked{background:var(--check-bg)}
+  .checkmark{display:none;font-size:11px}
+  .checkbox.checked .checkmark{display:block}
+  .item-text{font-size:13px;line-height:1.55;color:#d4c4a8;transition:all .2s}
+  .item-text.done{color:#5a4a30;text-decoration:line-through}
+  .footer{text-align:center;margin-top:44px;color:#3a2a18;font-size:11px;letter-spacing:.12em}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="subtitle">Novembro 2026</div>
+  <h1>Checklist do Casamento</h1>
+  <div class="divider">✦ ✦ ✦</div>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-text" id="progressText">0 de 0 tarefas concluídas — 0%</div>
+  </div>
+</div>
+
+<div class="filters">
+  <button class="filter-btn active" onclick="setFilter('all')">Todas</button>
+  <button class="filter-btn" onclick="setFilter('pending')">Pendentes</button>
+  <button class="filter-btn" onclick="setFilter('done')">Concluídas</button>
+</div>
+
+<div class="categories" id="categories"></div>
+<div class="footer">✦ Feito com amor ✦</div>
+
+<script>
+const STORAGE_KEY = 'wedding-checklist-v1';
+
+const categories = [
+  {id:'local',icon:'🏛️',title:'Local & Fornecedores',color:'#c9a96e',items:['Definir data oficial do casamento','Escolher e reservar o espaco da cerimonia','Escolher e reservar o espaco da festa','Contratar buffet / catering','Contratar fotografo','Contratar videomaker','Contratar DJ ou banda','Contratar cerimonialista / assessora','Contratar decorador(a)','Contratar floricultura','Contratar bolo de casamento','Contratar bem-casados / docinhos','Contratar iluminacao especial']},
+  {id:'vestimenta',icon:'👗',title:'Vestimenta & Beleza',color:'#d4a5c9',items:['Escolher e comprar/aluguar vestido de noiva','Agendar provas do vestido','Escolher traje do noivo','Escolher trajes dos padrinhos e madrinhas','Contratar maquiadora para o dia','Contratar cabeleireira para o dia','Fazer teste de maquiagem e cabelo','Escolher buque da noiva','Comprar acessorios (veu, tiara, joias)','Sapatos da noiva (ensaio para adaptar)']},
+  {id:'convites',icon:'✉️',title:'Convites & Lista de Convidados',color:'#9ec4c9',items:['Definir numero total de convidados','Montar lista de convidados (cerimonia)','Montar lista de convidados (festa)','Criar e encomendar convites','Enviar convites (ate 2 meses antes)','Criar website do casamento','Criar lista de presentes / PIX coletivo','Confirmar presenca dos convidados (RSVP)','Definir e comunicar o dress code']},
+  {id:'cerimonia',icon:'💒',title:'Cerimonia',color:'#a9c9a4',items:['Escolher padre/pastor/celebrante','Agendar reunioes com o celebrante','Definir roteiro da cerimonia','Escolher padrinhos e madrinhas','Escolher daminhas e pajens','Escolher aliancas','Escolher musica de entrada e saida','Ensaio geral da cerimonia','Providenciar documentacao (habilitacao de casamento)']},
+  {id:'festa',icon:'🥂',title:'Festa & Recepcao',color:'#c9b4a0',items:['Definir menu completo com o buffet','Definir opcoes para restricoes alimentares','Escolher bebidas e bar','Definir ordem dos eventos da festa','Planejar abertura de pista de danca','Definir mesa de bolo e doces','Escolher lembrancinhas para convidados','Planejar chuva de arroz / petalas','Definir area kids (se necessario)']},
+  {id:'logistica',icon:'🚗',title:'Logistica & Hospedagem',color:'#b4a9c9',items:['Contratar carro para os noivos','Providenciar transporte para convidados (van/onibus)','Indicar hoteis proximos para convidados de fora','Reservar quarto para a noite do casamento','Planejar lua de mel (passagens, hotel, roteiro)','Fazer passaporte (se viagem internacional)']},
+  {id:'financeiro',icon:'💰',title:'Financeiro',color:'#c9c4a0',items:['Definir orcamento total do casamento','Abrir conta ou poupanca exclusiva para o casamento','Criar planilha de gastos e pagamentos','Pagar sinais / reservas dos fornecedores','Revisar contratos de todos os fornecedores','Definir valor da gorjeta para fornecedores','Contratar seguro do evento (opcional)']},
+  {id:'noivos',icon:'💑',title:'Cuidados com os Noivos',color:'#c9a0a0',items:['Agendar sessao de fotos de casal (pre-wedding)','Escrever votos pessoais','Fazer tratamento de pele (iniciar com antecedencia)','Planejar despedida de solteiro(a)','Fazer lista de musicas especiais para a festa','Preparar presente surpresa para o parceiro(a)','Separar documento para mudanca de nome (se for mudar)']},
+  {id:'semana',icon:'📋',title:'Semana do Casamento',color:'#9ea9c9',items:['Confirmar horarios com todos os fornecedores','Entregar itens para o cerimonialista','Preparar cesta de emergencia (alfinete, fita, remedios)','Fazer manicure/pedicure','Distribuir tarefas entre padrinhos/madrinhas','Descansar e dormir bem nos dias anteriores','Fazer check-in no hotel da lua de mel']},
+];
+
+let checked = {};
+let currentFilter = 'all';
+
+function loadData() {
+  try { checked = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { checked = {}; }
+}
+
+function saveData() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(checked)); } catch(e) {}
+}
+
+function key(catId, item) { return catId + '||' + item; }
+
+function totalItems() { return categories.reduce((s,c) => s + c.items.length, 0); }
+function doneItems() { return Object.values(checked).filter(Boolean).length; }
+
+function updateProgress() {
+  const total = totalItems();
+  const done = doneItems();
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = done + ' de ' + total + ' tarefas concluidas — ' + pct + '%';
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['all','pending','done'][i] === f);
+  });
+  renderItems();
+}
+
+function toggleItem(catId, item) {
+  const k = key(catId, item);
+  checked[k] = !checked[k];
+  saveData();
+  updateProgress();
+  renderItems();
+}
+
+function toggleCategory(catId) {
+  const el = document.getElementById('cat-' + catId);
+  el.classList.toggle('open');
+}
+
+function renderItems() {
+  categories.forEach(cat => {
+    const itemsEl = document.getElementById('items-' + cat.id);
+    if (!itemsEl) return;
+    itemsEl.innerHTML = '';
+    let visibleCount = 0;
+    cat.items.forEach(item => {
+      const k = key(cat.id, item);
+      const isDone = !!checked[k];
+      if (currentFilter === 'done' && !isDone) return;
+      if (currentFilter === 'pending' && isDone) return;
+      visibleCount++;
+      const div = document.createElement('div');
+      div.className = 'item';
+      div.onclick = () => toggleItem(cat.id, item);
+      div.innerHTML =
+        '<div class="checkbox ' + (isDone?'checked':'') + '" style="--check-bg:' + cat.color + '33;border-color:' + (isDone?cat.color:'rgba(255,255,255,.17)') + '">' +
+        '<span class="checkmark" style="color:' + cat.color + '">✓</span></div>' +
+        '<span class="item-text ' + (isDone?'done':'') + '">' + item + '</span>';
+      itemsEl.appendChild(div);
+    });
+    const catEl = document.getElementById('cat-' + cat.id);
+    if (currentFilter !== 'all') {
+      catEl.style.display = visibleCount === 0 ? 'none' : '';
+    } else {
+      catEl.style.display = '';
+    }
+    // Update mini progress
+    const done = cat.items.filter(i => !!checked[key(cat.id,i)]).length;
+    const pct = Math.round(done/cat.items.length*100);
+    const fill = document.getElementById('catfill-' + cat.id);
+    const count = document.getElementById('catcount-' + cat.id);
+    const complete = document.getElementById('catcomplete-' + cat.id);
+    if (fill) { fill.style.width = pct + '%'; fill.style.background = done === cat.items.length ? '#7dc97a' : cat.color; }
+    if (count) { count.textContent = done + '/' + cat.items.length; count.style.color = done === cat.items.length ? '#7dc97a' : cat.color; }
+    if (complete) { complete.style.display = done === cat.items.length ? '' : 'none'; }
+  });
+}
+
+function render() {
+  const container = document.getElementById('categories');
+  container.innerHTML = '';
+  categories.forEach((cat, idx) => {
+    const div = document.createElement('div');
+    div.className = 'category' + (idx === 0 ? ' open' : '');
+    div.id = 'cat-' + cat.id;
+    div.style.setProperty('--cat-color-alpha', cat.color + '50');
+    div.innerHTML =
+      '<button class="cat-header" onclick="toggleCategory(\'' + cat.id + '\')">' +
+        '<span class="cat-icon">' + cat.icon + '</span>' +
+        '<span class="cat-title">' + cat.title + '</span>' +
+        '<span class="cat-complete" id="catcomplete-' + cat.id + '" style="display:none">✓ COMPLETO</span>' +
+        '<span class="cat-count" id="catcount-' + cat.id + '" style="color:' + cat.color + '">0/' + cat.items.length + '</span>' +
+        '<span class="cat-arrow" style="color:' + cat.color + '">▼</span>' +
+      '</button>' +
+      '<div class="cat-progress"><div class="cat-progress-fill" id="catfill-' + cat.id + '" style="background:' + cat.color + '"></div></div>' +
+      '<div class="cat-items" id="items-' + cat.id + '"></div>';
+    container.appendChild(div);
+  });
+  renderItems();
+  updateProgress();
+}
+
+loadData();
+render();
+</script>
+
+</body>
 </html>
